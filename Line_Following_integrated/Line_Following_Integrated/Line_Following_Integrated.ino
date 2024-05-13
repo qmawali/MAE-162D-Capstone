@@ -51,7 +51,7 @@ if ((digitalRead(R_S_b) == 0) && (digitalRead(L_S_b) == 0)) {
   if ((digitalRead(R_S_b) == 0) && (digitalRead(L_S_b) == 1)) {
     turnLeft();
   }
-  if ((digitalRead(R_S_f) == 1) && (digitalRead(L_S_f) == 1)) {
+  if ((digitalRead(R_S_b) == 1) && (digitalRead(L_S_b) == 1)) {
     Stop();
   }
 
@@ -63,7 +63,7 @@ void forward() {
 
 void turnRight() {
   motorA.drive(-pmw);
-  motorB.drive(255);
+  motorB.drive(pmw);
 }
 
 void turnLeft() {
