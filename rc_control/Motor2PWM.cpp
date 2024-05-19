@@ -1,22 +1,21 @@
 #include "Arduino.h"
-#include "Motor.h"
+#include "Motor2PWM.h"
 
-Motor::Motor(int dirPin, int PWM) {
+Motor::Motor(int PWM1, int PWM2) {
   // Pins
-  this->dirPin = dirPin;
-  this->PWM = PWM;
+  this->PWM1 = PWM1;
+  this->PWM2 = PWM2;
 
-  pinMode(dir, OUTPUT);
-  pinMode(PWM, OUTPUT);
+  pinMode(PWM1, OUTPUT);
+  pinMode(PWM2, OUTPUT);
 
   // Initial Direction, Power
-  digitalWrite(dirPin, LOW);
-  this->dir = false;
+  this->PWM = PWM1;
   //analogWrite(PWM, 0); // This line ensures cosntant 0 PWM output on nano 33 ble, not sure why
 }
 
 void Motor::setPWM(int newPWM){
-  analogWrite(PWM, newPWM);
+  analogWrite(PWM, min(abs(newPWM), 255));
 }
 
 void Motor::run(int time){
@@ -25,15 +24,18 @@ void Motor::run(int time){
 }
 
 void Motor::toggleDir(){
-  digitalWrite(dirPin, !dir);
-  dir = !dir;
+  if(PWM==PWM1)
+    PWM = PWM2;
+  else
+    PWM = PWM1;
 }
 
 void Motor::setDir(bool newDir) {
-  if(dir!=newDir) {
-    dir = newDir;
-    digitalWrite(dirPin, dir);
-  }
+  if((PWM==PWM1) != newDir)
+      if(newDir)
+        PWM = PWM1;
+      else
+        PWM = PWM2;
 }
 
 void Motor::drive(int target) {

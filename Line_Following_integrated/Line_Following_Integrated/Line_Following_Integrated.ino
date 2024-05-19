@@ -1,12 +1,12 @@
 #include "Motor.h"
 
-#define R_S_f 4    //ir sensor Right front
-#define L_S_f 2    //ir sensor Left front
-#define R_S_b 3    //ir sensor Right back
-#define L_S_b 5    //ir sensor Left back
+#define R_S_f 18   //ir sensor Right front
+#define L_S_f 19   //ir sensor Left front
+#define R_S_b 20    //ir sensor Right back
+#define L_S_b 21    //ir sensor Left back
 
-Motor motorA(22, 8);
-Motor motorB(23, 10);
+Motor motorA(3, 6);
+Motor motorB(4, 5);
 int pmw = 255;
 bool dir = 0;
 
@@ -18,6 +18,7 @@ void setup() {
   pinMode(L_S_b, INPUT);
   Serial.begin(9600);
   delay(1000);
+  Serial.println("Bergin");
 
 }
 

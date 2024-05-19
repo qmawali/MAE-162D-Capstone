@@ -9,7 +9,7 @@
 #define DISTANCE_PER_ROTATION 10 // Distance covered per full rotation (in cm)
 
 
-AccelStepperWithDistance lift(AccelStepper::DRIVER, STEP_PIN, DIR_PIN, ENABLE_PIN);
+AccelStepperWithDistance lift(AccelStepper::DRIVER, STEP_PIN, DIR_PIN, ENABLE_PIN, 5);
 
 void setup() {
   // Set up the lift
