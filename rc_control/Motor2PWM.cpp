@@ -1,10 +1,12 @@
 #include "Arduino.h"
 #include "Motor2PWM.h"
 
-Motor::Motor(int PWM1, int PWM2) {
+Motor::Motor(int PWM1, int PWM2, int maxPWM) {
   // Pins
   this->PWM1 = PWM1;
   this->PWM2 = PWM2;
+
+  this->maxPWM = maxPWM;
 
   pinMode(PWM1, OUTPUT);
   pinMode(PWM2, OUTPUT);
@@ -15,7 +17,7 @@ Motor::Motor(int PWM1, int PWM2) {
 }
 
 void Motor::setPWM(int newPWM){
-  analogWrite(PWM, min(abs(newPWM), 255));
+  analogWrite(PWM, min(abs(newPWM), maxPWM));
 }
 
 void Motor::run(int time){
@@ -25,20 +27,31 @@ void Motor::run(int time){
 
 void Motor::toggleDir(){
   if(PWM==PWM1)
-    PWM = PWM2;
+    writeDir(0);
   else
-    PWM = PWM1;
+    writeDir(1);
 }
 
 void Motor::setDir(bool newDir) {
   if((PWM==PWM1) != newDir)
       if(newDir)
-        PWM = PWM1;
+        writeDir(1);
       else
-        PWM = PWM2;
+        writeDir(0);
 }
 
 void Motor::drive(int target) {
   this->setDir(target>0);
-  this->setPWM(min(abs(target), 255));
+  this->setPWM(min(abs(target), maxPWM));
+}
+
+void Motor::writeDir(bool dir) {
+  if(dir) {
+    PWM = PWM1;
+    analogWrite(PWM2, 0);
+  }
+  else {
+    PWM = PWM2;
+    analogWrite(PWM1, 0);
+  }
 }
