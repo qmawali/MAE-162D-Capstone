@@ -1,10 +1,10 @@
-#ifndef Motor_h
-#define Motor_h
+#ifndef Motor2PWM_h
+#define Motor2PWM_h
 #include "Arduino.h"
 
 class Motor {
 public:
-  Motor(int dirPin, int PWM); // Constructor
+  Motor(int PWM1, int PWM2, int maxPWM = 255); // Constructor
 
   void setPWM(int newPWM);
   void run(int time);
@@ -16,10 +16,11 @@ public:
 
 private:
   // Pins
-  int dirPin, PWM;
+  int PWM1, PWM2, PWM;
 
-  // Trackers
-  bool dir;
+  int maxPWM;
+
+  void writeDir(bool dir);
 };
 
 #endif

@@ -1,75 +1,222 @@
-#include "Motor.h"
+#include "Motor2PWM.h"
+#include <AccelStepper.h>
+#include <ArduinoBLE.h>
 
-#define R_S_f 18   //ir sensor Right front
-#define L_S_f 19   //ir sensor Left front
-#define R_S_b 20    //ir sensor Right back
-#define L_S_b 21    //ir sensor Left back
+//
+// BLE SETUP
+//
+BLEService botanistArduino("1214");
+BLECharacteristic drivetrain("9873", BLERead | BLEWrite, 2);
+BLECharacteristic lift("7758", BLERead | BLEWrite, 2);
+BLECharacteristic directionSwap("e94a", BLERead | BLEWrite, 4);
+int swap = 0;
+//
+//
+//
 
-Motor motorA(3, 6);
-Motor motorB(4, 5);
+//
+// DRIVETRAIN SETTINGS
+//
+// maxPWM not 255 because DBH-12V motor driver requires <98% demand cycle
+#define maxPWM 250
+
+#define R_S_f 2  //ir sensor Right front
+#define L_S_f 5  //ir sensor Left front
+#define R_S_b 6  //ir sensor Right back
+#define L_S_b 4  //ir sensor Left back
+
+Motor motorA(11, 12, maxPWM);
+Motor motorB(7, 8, maxPWM);
 int pmw = 255;
-bool dir = 0;
+// 0 is tank side 1 is lift side???
+bool dir = 1;//(bool)random(0, 2);
+//
+//
+//
+
+//
+// LIFT SETTINGS
+//
+AccelStepper liftMotor(1, 16, 17); // pulse, dir
+//
+//
+//
 
 void setup() {
-
   pinMode(R_S_f, INPUT);
   pinMode(L_S_f, INPUT);
   pinMode(R_S_b, INPUT);
   pinMode(L_S_b, INPUT);
+
+  liftMotor.setMaxSpeed(1000);
+  liftMotor.setAcceleration(500);
+
   Serial.begin(9600);
-  delay(1000);
-  Serial.println("Bergin");
+  //while(!Serial);
+
+  // BLE Initialization
+  if(!BLE.begin()){
+    Serial.println("starting BLE Failed");
+    while(1) {
+      digitalWrite(LEDR, LOW);
+      delay(500);
+      digitalWrite(LEDR, HIGH);
+      delay(500);
+    }
+  }
+
+  digitalWrite(LEDR, LOW);
+
+  // ble setup
+  BLE.setLocalName("botanistArduino");
+  BLE.setAdvertisedService(botanistArduino);
+  botanistArduino.addCharacteristic(drivetrain);
+  botanistArduino.addCharacteristic(lift);
+  botanistArduino.addCharacteristic(directionSwap);
+  BLE.addService(botanistArduino);
+  Serial.println(BLE.address());
+
+  // Set event handlers
+  BLE.setEventHandler(BLEConnected, blePeripheralConnectHandler);
+  BLE.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
+
+  drivetrain.setValue(0);
+  drivetrain.setEventHandler(BLEWritten, drivetrainActivation);
+  
+  lift.setValue(0);
+  lift.setEventHandler(BLEWritten, liftActivation);
+
+  directionSwap.writeValue(&swap, 4);
+
+  BLE.advertise();
+  Serial.println("Advertising");
 
 }
 
 void loop() {
-
-if ((dir = 0)){
-if ((digitalRead(R_S_f) == 0) && (digitalRead(L_S_f) == 0)) {
-    forward();
-  }
-  if ((digitalRead(R_S_f) == 1) && (digitalRead(L_S_f) == 0)) {
-    turnRight();
-  }
-  if ((digitalRead(R_S_f) == 0) && (digitalRead(L_S_f) == 1)) {
-    turnLeft();
-  }
-  if ((digitalRead(R_S_f) == 1) && (digitalRead(L_S_f) == 1)) {
-    dir = 1;
-    pmw = -1*pmw;
-    Stop();
-  }
-
-}
-else 
-
-if ((digitalRead(R_S_b) == 0) && (digitalRead(L_S_b) == 0)) {
-    forward();
-  }
-  if ((digitalRead(R_S_b) == 1) && (digitalRead(L_S_b) == 0)) {
-    turnRight();
-  }
-  if ((digitalRead(R_S_b) == 0) && (digitalRead(L_S_b) == 1)) {
-    turnLeft();
-  }
-  if ((digitalRead(R_S_b) == 1) && (digitalRead(L_S_b) == 1)) {
-    Stop();
-  }
-
-}
-void forward() {
-  motorA.drive(pmw);
-  motorB.drive(pmw);
+  // Poll funciton just refers to event handlers as the events happen, as set in setup
+  BLE.poll();
+  liftMotor.runSpeed();
 }
 
-void turnRight() {
-  motorA.drive(-pmw);
-  motorB.drive(pmw);
+/*
+  bool irR;
+  bool irL;
+
+  Serial.println(String(dir) + ' ' + String(digitalRead(R_S_f)) + ' ' + String(digitalRead(L_S_f)) + ' ' + String(digitalRead(R_S_b)) + ' ' + String(digitalRead(L_S_b)));
+
+  if(dir) {
+    irR = digitalRead(R_S_f);
+    irL = digitalRead(L_S_f); 
+  } else {
+    irR = digitalRead(R_S_b);
+    irL = digitalRead(L_S_b); 
+  }
+
+  if (!irR && !irL)
+    forward(getMod(dir));
+  if (irR && !irL)
+    turnRight(getMod(dir));
+  if (!irR && irL)
+    turnLeft(getMod(dir));
+  if (irR && irL) {
+    liftMotor.setSpeed(80); // 80/100
+    liftMotor.step(STEPS_PER_REV);
+    liftMotor.step(-STEPS_PER_REV);
+    dir = !dir;
+  }
+}
+*/
+
+void blePeripheralConnectHandler(BLEDevice central) {
+  // central connected event handler
+  Serial.print("Connected event, central: ");
+  Serial.println(central.address());
+  digitalWrite(LEDR, HIGH);
+  digitalWrite(LEDB, LOW);
 }
 
-void turnLeft() {
-  motorA.drive(pmw);
-  motorB.drive(-pmw);
+void blePeripheralDisconnectHandler(BLEDevice central) {
+  // central disconnected event handler
+  Serial.print("Disconnected event, central: ");
+  Serial.println(central.address());
+
+  digitalWrite(LEDB, HIGH);
+  digitalWrite(LEDR, LOW);
+
+  Stop();
+
+  //liftMotor.setSpeed(50);
+  //for(int i = 0; i<300; i++)
+  // liftMotor.step(STEPS_PER_REV/100); // >0 away from motor  
+}
+
+void liftActivation(BLEDevice central, BLECharacteristic characteristic) {
+  // eek ahh oww
+  Serial.println("lift event");
+
+  // ahh oo
+  int16_t charValue;
+  lift.readValue(&charValue, 2);
+  Serial.println(charValue);
+
+  liftMotor.setSpeed(charValue);
+}
+
+void drivetrainActivation(BLEDevice central, BLECharacteristic characteristic) {
+  // central wrote new value to characteristic, update LED
+  Serial.println("drivetrain event, written: ");
+
+  // Store and print values: first element is PWM input
+  uint8_t charValue[2];
+  drivetrain.readValue(charValue, 2);
+  Serial.println(String(charValue[0]) + ' ' + String(charValue[1]));
+
+  // turn 0/1 to -1/1 direction
+  int dir = getDirMod(charValue[1]);
+  int PWM = charValue[0];
+
+  bool irR, irL;
+  if(dir) {
+    irR = digitalRead(R_S_f);
+    irL = digitalRead(L_S_f); 
+  } else {
+    irR = digitalRead(R_S_b);
+    irL = digitalRead(L_S_b); 
+  }
+
+  if (!irR && !irL)
+    forward(dir, PWM);
+  if (irR && !irL)
+    turnRight(dir, PWM);
+  if (!irR && irL)
+    turnLeft(dir, PWM);
+  if (irR && irL) {
+    swap = 1;
+    directionSwap.writeValue(&swap, 4);
+  }
+}
+
+void forward(int mod, int pwm) {
+  motorA.drive(mod*pwm);
+  motorB.drive(mod*pwm);
+}
+
+void turnRight(int mod, int pwm) {
+  motorA.drive(mod*pwm);
+  motorB.drive(-mod*pwm);
+}
+
+void turnLeft(int mod, int pwm) {
+  motorA.drive(-mod*pwm);
+  motorB.drive(mod*pwm);
+}
+
+int getDirMod(bool dir) {
+  if(dir)
+    return -1;
+  else
+    return 1;
 }
 
 void Stop() {
@@ -77,4 +224,12 @@ void Stop() {
   motorB.drive(0);
 }
 
-
+void oh_no() {
+  digitalWrite(LEDB, HIGH);
+  while(1) {
+    digitalWrite(LEDR, LOW);
+    delay(500);
+    digitalWrite(LEDR, HIGH);
+    delay(500);
+  }
+}

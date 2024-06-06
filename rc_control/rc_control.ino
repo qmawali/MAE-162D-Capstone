@@ -2,7 +2,7 @@
 #include "Motor2PWM.h"
 
 // maxPWM not 255 because DBH-12V motor driver requires <98% demand cycle
-#define maxPWM 250
+#define maxPWM 100
 Joystick jsA(A0, maxPWM);
 Joystick jsB(A1, maxPWM);
 
