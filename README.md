@@ -1,6 +1,11 @@
 # MAE-162D-Capstone
 Software for BOTanist
 
+Arduino connects to 2xPWM Motor Driver with two motors per output channel for drivetrain + 4 IR sensors for double-sided line-following.
+Lift motor controlled by Nema 17, through TB6600 and Arduino
+Arduino BLE address must be updated in Raspi code
+Raspi controls pump through L298N, Ultrasonic sensor, and rack stepper motor through ULN2003 driver
+
 ## The line_following code uses the following pseudocode:
 
 IR Input Right and left have value 1 for black color and 0 for white color

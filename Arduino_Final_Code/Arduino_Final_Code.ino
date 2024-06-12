@@ -20,7 +20,7 @@ int swap = 0;
 // maxPWM not 255 because DBH-12V motor driver requires <98% demand cycle
 #define maxPWM 250
 
-#define R_S_f 2  //ir sensor Right front
+#define R_S_f 3  //ir sensor Right front
 #define L_S_f 5  //ir sensor Left front
 #define R_S_b 6  //ir sensor Right back
 #define L_S_b 4  //ir sensor Left back
@@ -29,7 +29,7 @@ Motor motorA(11, 12, maxPWM);
 Motor motorB(7, 8, maxPWM);
 int pmw = 255;
 // 0 is tank side 1 is lift side???
-bool dir = 1;//(bool)random(0, 2);
+bool dir = 1;
 //
 //
 //
@@ -38,6 +38,10 @@ bool dir = 1;//(bool)random(0, 2);
 // LIFT SETTINGS
 //
 AccelStepper liftMotor(1, 16, 17); // pulse, dir
+#define liftEnable 18
+
+int loopCount = 0;
+int16_t liftValue = 0;
 //
 //
 //
@@ -80,10 +84,14 @@ void setup() {
   BLE.setEventHandler(BLEConnected, blePeripheralConnectHandler);
   BLE.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
 
-  drivetrain.setValue(0);
+  uint8_t initialDrive[2];
+  initialDrive[0] = initialDrive[1] = 0;
+  drivetrain.writeValue(initialDrive,2);
   drivetrain.setEventHandler(BLEWritten, drivetrainActivation);
   
   lift.setValue(0);
+  liftMotor.setSpeed(0);
+  digitalWrite(liftEnable, HIGH);
   lift.setEventHandler(BLEWritten, liftActivation);
 
   directionSwap.writeValue(&swap, 4);
@@ -93,10 +101,21 @@ void setup() {
 
 }
 
+
 void loop() {
   // Poll funciton just refers to event handlers as the events happen, as set in setup
-  BLE.poll();
-  liftMotor.runSpeed();
+  if (liftValue == 0) {
+    BLE.poll();
+  }
+  else {
+    if(loopCount > 5) {
+      BLE.poll();
+      loopCount = 0;
+    }
+
+    liftMotor.runSpeed();
+    loopCount++;
+  }
 }
 
 /*
@@ -155,12 +174,17 @@ void liftActivation(BLEDevice central, BLECharacteristic characteristic) {
   // eek ahh oww
   Serial.println("lift event");
 
-  // ahh oo
-  int16_t charValue;
-  lift.readValue(&charValue, 2);
-  Serial.println(charValue);
+  lift.readValue(&liftValue, 2);
+  Serial.println(liftValue);
 
-  liftMotor.setSpeed(charValue);
+  if(liftValue == 0) {
+    digitalWrite(liftEnable, HIGH);
+  }
+  else {
+    digitalWrite(liftEnable, LOW);
+  }
+
+  liftMotor.setSpeed(liftValue);
 }
 
 void drivetrainActivation(BLEDevice central, BLECharacteristic characteristic) {
@@ -173,16 +197,21 @@ void drivetrainActivation(BLEDevice central, BLECharacteristic characteristic) {
   Serial.println(String(charValue[0]) + ' ' + String(charValue[1]));
 
   // turn 0/1 to -1/1 direction
-  int dir = getDirMod(charValue[1]);
   int PWM = charValue[0];
+  int dir = getDirMod(charValue[1]);
+  
+  if(PWM==0) {
+    Stop();
+    return;
+  }
 
   bool irR, irL;
-  if(dir) {
-    irR = digitalRead(R_S_f);
-    irL = digitalRead(L_S_f); 
-  } else {
+  if(charValue[1]) {
     irR = digitalRead(R_S_b);
     irL = digitalRead(L_S_b); 
+  } else {
+    irR = digitalRead(R_S_f);
+    irL = digitalRead(L_S_f); 
   }
 
   if (!irR && !irL)
